@@ -69,7 +69,7 @@ An advanced Retrieval-Augmented Generation (RAG) system designed specifically fo
 
 ### CLI Interface
 ```bash
-python app/src/groq_chat.py
+uv run python app/src/groq_chat.py
 ```
 
 Commands: `/help`, `/quit`, `/clear`, `/rebuild`, `/info`, `/rag on/off`
@@ -128,7 +128,7 @@ obsidian-assintant-rag/
 │       ├── vault_vectorize.py      # Document processing
 │       ├── markdown_processing.py  # Markdown utilities
 │       ├── metadata_extractor.py   # Metadata extraction
-│       └── performance_monitor.py  # Performance tracking
+│       └── metadata_extractor.py   # Metadata extraction
 ├── assets/
 │   └── vector_db/             # FAISS storage
 │       ├── faiss_index.bin    # Vector index
