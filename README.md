@@ -117,14 +117,25 @@ retrieval_config = RetrievalConfig(
 ```
 obsidian-assintant-rag/
 ├── app/
-│   ├── app.py                 # Streamlit interface
+│   ├── app.py                      # Streamlit interface
 │   └── src/
-│       ├── groq_chat.py       # Main chat engine
-│       ├── advanced_retrieval.py  # Retrieval system
-│       ├── embeddings.py      # Vector database
-│       └── vault_vectorize.py # Document processing
-├── assets/vector_db/          # FAISS storage
-├── environment.env            # Config template
+│       ├── __init__.py             # Package initialization
+│       ├── groq_chat.py            # Main chat engine
+│       ├── advanced_retrieval.py   # Retrieval system
+│       ├── advanced_chunking.py    # Document chunking
+│       ├── embeddings.py           # Vector database
+│       ├── optimized_embeddings.py # Optimized embeddings
+│       ├── vault_vectorize.py      # Document processing
+│       ├── markdown_processing.py  # Markdown utilities
+│       ├── metadata_extractor.py   # Metadata extraction
+│       └── performance_monitor.py  # Performance tracking
+├── assets/
+│   └── vector_db/             # FAISS storage
+│       ├── faiss_index.bin    # Vector index
+│       └── metadata.pkl       # Document metadata
+├── .env                       # Environment file
+├── pyproject.toml             # Project dependencies
+├── uv.lock                    # Lock file
 └── README.md
 ```
 
@@ -146,25 +157,6 @@ obsidian-assintant-rag/
 **Memory Issues**
 - Process large vaults in smaller batches
 - Monitor RAM usage during vectorization
-
-## 🤝 Contributing
-
-1. Fork repository
-2. Create feature branch
-3. Make changes and test
-4. Submit pull request
-
-### Development
-```bash
-uv sync --dev
-pytest          # Run tests
-black .         # Format code
-mypy app/       # Type checking
-```
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
 
 ## 🙏 Acknowledgments
 
