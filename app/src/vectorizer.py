@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
-from embeddings import load_embeddings_model, get_embeddings, faiss_index, save_vector_database, load_vector_database
-from advanced_chunking import chunk_documents, ChunkConfig
+from vector_db import load_embeddings_model, get_embeddings, faiss_index, save_vector_database, load_vector_database
+from chunking import chunk_documents, ChunkConfig
 
 # Load environment variables
 load_dotenv()

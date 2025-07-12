@@ -117,23 +117,20 @@ retrieval_config = RetrievalConfig(
 ```
 obsidian-assintant-rag/
 ├── app/
-│   ├── app.py                      # Streamlit interface
+│   ├── app.py                 # Streamlit interface
 │   └── src/
-│       ├── __init__.py             # Package initialization
-│       ├── groq_chat.py            # Main chat engine
-│       ├── advanced_retrieval.py   # Retrieval system
-│       ├── advanced_chunking.py    # Document chunking
-│       ├── embeddings.py           # Vector database
-│       ├── optimized_embeddings.py # Optimized embeddings
-│       ├── vault_vectorize.py      # Document processing
-│       ├── markdown_processing.py  # Markdown utilities
-│       ├── metadata_extractor.py   # Metadata extraction
-│       └── metadata_extractor.py   # Metadata extraction
+│       ├── __init__.py        # Package initialization
+│       ├── groq_chat.py       # Main chat engine
+│       ├── retrieval.py       # Retrieval system
+│       ├── chunking.py        # Document chunking
+│       ├── vector_db.py       # Vector database operations
+│       ├── vectorizer.py      # Document vectorization
+│       └── document_processor.py # Text processing & metadata
 ├── assets/
 │   └── vector_db/             # FAISS storage
 │       ├── faiss_index.bin    # Vector index
 │       └── metadata.pkl       # Document metadata
-├── .env                       # Environment file
+├── environment.env            # Config template
 ├── pyproject.toml             # Project dependencies
 ├── uv.lock                    # Lock file
 └── README.md

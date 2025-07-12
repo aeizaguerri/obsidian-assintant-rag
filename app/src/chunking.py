@@ -9,8 +9,7 @@ import re
 import os
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
-from markdown_processing import clean_markdown_content
-from metadata_extractor import extract_enhanced_metadata
+from document_processor import clean_markdown_content, extract_enhanced_metadata
 
 try:
     import tiktoken

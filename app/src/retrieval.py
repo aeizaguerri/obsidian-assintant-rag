@@ -12,7 +12,7 @@ from typing import List, Dict, Tuple, Set, Optional
 from dataclasses import dataclass
 from collections import defaultdict, Counter
 import numpy as np
-from embeddings import load_embeddings_model, get_embeddings, search_similar
+from vector_db import load_embeddings_model, get_embeddings, search_similar
 
 @dataclass
 class RetrievalConfig:

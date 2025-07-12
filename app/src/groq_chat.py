@@ -2,9 +2,9 @@ import os
 from typing import List, Dict, Optional
 from dotenv import load_dotenv
 from groq import Groq
-from embeddings import load_embeddings_model, get_embeddings, search_similar
-from vault_vectorize import vectorize_docs
-from advanced_retrieval import AdvancedRetriever, RetrievalConfig
+from vector_db import load_embeddings_model, get_embeddings, search_similar
+from vectorizer import vectorize_docs
+from retrieval import AdvancedRetriever, RetrievalConfig
 
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")

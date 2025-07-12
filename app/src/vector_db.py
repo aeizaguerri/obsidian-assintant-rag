@@ -1,8 +1,8 @@
 """
-Optimized embeddings with HNSW indexing and caching for better performance.
+Vector database operations with optimized indexing and caching.
 
-This module provides enhanced performance through better indexing algorithms
-and query result caching for frequently accessed patterns.
+Combines basic FAISS operations with advanced HNSW indexing and query caching
+for better performance on large document collections.
 """
 
 import os
@@ -16,7 +16,12 @@ from sentence_transformers import SentenceTransformer
 import faiss
 
 EMBEDDINGS_MODEL = "all-MiniLM-L6-v2"
-VECTOR_DB_PATH = "../../assets/vector_db"
+
+# Get absolute path to project root and create vector_db path
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.dirname(os.path.dirname(_current_dir))
+VECTOR_DB_PATH = os.path.join(_project_root, "assets", "vector_db")
+
 INDEX_FILE = "faiss_index.bin"
 METADATA_FILE = "metadata.pkl"
 HNSW_INDEX_FILE = "hnsw_index.bin"
@@ -123,6 +128,120 @@ class QueryCache:
         if os.path.exists(self.cache_file):
             os.remove(self.cache_file)
 
+def load_embeddings_model() -> SentenceTransformer:
+    return SentenceTransformer(EMBEDDINGS_MODEL)
+
+def get_embeddings(model: SentenceTransformer, text: str) -> np.ndarray:
+    return np.asarray(model.encode(text))
+
+def create_vector_db_dir():
+    """Create vector database directory if it doesn't exist"""
+    if not os.path.exists(VECTOR_DB_PATH):
+        os.makedirs(VECTOR_DB_PATH, exist_ok=True)
+        print(f"Created vector database directory: {VECTOR_DB_PATH}")
+
+def faiss_index(embeddings: List[np.ndarray]) -> faiss.Index | None:
+    if not embeddings:
+        return None
+    
+    embeddings_array = np.vstack(embeddings)
+    index = faiss.IndexFlatL2(embeddings_array.shape[1])
+    index.add(embeddings_array)
+    return index
+
+def create_hnsw_index(embeddings: List[np.ndarray]) -> faiss.Index:
+    """Create HNSW index for better performance"""
+    if not embeddings:
+        return None
+    
+    embeddings_array = np.vstack(embeddings).astype(np.float32)
+    dimension = embeddings_array.shape[1]
+    
+    # Create HNSW index
+    # M: number of connections for every new element during construction
+    # efConstruction: size of dynamic candidate list for construction
+    index = faiss.IndexHNSWFlat(dimension, 32)  # M=32
+    index.hnsw.efConstruction = 200  # Higher = better quality, slower construction
+    index.hnsw.efSearch = 100        # Higher = better quality, slower search
+    
+    index.add(embeddings_array)
+    return index
+
+def save_vector_database(index: faiss.Index, metadata: List[Dict]):
+    create_vector_db_dir()
+    
+    # Save HNSW index if available
+    if isinstance(index, faiss.IndexHNSWFlat):
+        hnsw_path = os.path.join(VECTOR_DB_PATH, HNSW_INDEX_FILE)
+        faiss.write_index(index, hnsw_path)
+        print("✓ Saved HNSW index for faster searches")
+    
+    # Save FAISS index
+    index_path = os.path.join(VECTOR_DB_PATH, INDEX_FILE)
+    faiss.write_index(index, index_path)
+    
+    # Save metadata
+    metadata_path = os.path.join(VECTOR_DB_PATH, METADATA_FILE)
+    with open(metadata_path, 'wb') as f:
+        pickle.dump(metadata, f)
+
+def load_vector_database(use_hnsw: bool = True) -> Tuple[faiss.Index | None, List[Dict]]:
+    """Load vector database from disk"""
+    hnsw_path = os.path.join(VECTOR_DB_PATH, HNSW_INDEX_FILE)
+    index_path = os.path.join(VECTOR_DB_PATH, INDEX_FILE)
+    metadata_path = os.path.join(VECTOR_DB_PATH, METADATA_FILE)
+    
+    index = None
+    
+    # Try HNSW index first if available and requested
+    if use_hnsw and os.path.exists(hnsw_path):
+        try:
+            index = faiss.read_index(hnsw_path)
+            print("✓ Loaded HNSW index")
+        except Exception as e:
+            print(f"Failed to load HNSW index: {e}")
+    
+    # Fallback to regular index
+    if index is None and os.path.exists(index_path):
+        try:
+            index = faiss.read_index(index_path)
+            print("✓ Loaded flat index")
+        except Exception as e:
+            print(f"Error loading vector database: {e}")
+            return None, []
+    
+    if not os.path.exists(metadata_path):
+        print(f"Vector database not found at {VECTOR_DB_PATH}")
+        print("Please run the vectorization process first")
+        return None, []
+    
+    try:
+        # Load metadata
+        with open(metadata_path, 'rb') as f:
+            metadata = pickle.load(f)
+        
+        if index is not None:
+            print(f"✓ Loaded vector database with {len(metadata)} documents from {VECTOR_DB_PATH}")
+        return index, metadata
+    except Exception as e:
+        print(f"Error loading metadata: {e}")
+        return None, []
+
+def search_similar(query_embedding: np.ndarray, k: int = 5) -> List[Tuple[float, Dict]]:
+    index, metadata = load_vector_database()
+    if index is None:
+        return []
+    
+    query_vector = query_embedding.reshape(1, -1).astype(np.float32)
+    distances, indices = index.search(query_vector, k)
+    
+    results = []
+    for distance, idx in zip(distances[0], indices[0]):
+        if idx < len(metadata) and idx != -1:
+            results.append((float(distance), metadata[idx]))
+    
+    return results
+
 class OptimizedEmbeddings:
     """Optimized embeddings with HNSW and caching"""
     
@@ -142,91 +261,6 @@ class OptimizedEmbeddings:
         """Get embeddings for text"""
         return np.asarray(self.model.encode(text))
     
-    def create_hnsw_index(self, embeddings: List[np.ndarray]) -> faiss.Index:
-        """Create HNSW index for better performance"""
-        if not embeddings:
-            return None
-        
-        embeddings_array = np.vstack(embeddings).astype(np.float32)
-        dimension = embeddings_array.shape[1]
-        
-        # Create HNSW index
-        # M: number of connections for every new element during construction
-        # efConstruction: size of dynamic candidate list for construction
-        index = faiss.IndexHNSWFlat(dimension, 32)  # M=32
-        index.hnsw.efConstruction = 200  # Higher = better quality, slower construction
-        index.hnsw.efSearch = 100        # Higher = better quality, slower search
-        
-        index.add(embeddings_array)
-        return index
-    
-    def create_flat_index(self, embeddings: List[np.ndarray]) -> faiss.Index:
-        """Create flat index as fallback"""
-        if not embeddings:
-            return None
-        
-        embeddings_array = np.vstack(embeddings).astype(np.float32)
-        index = faiss.IndexFlatL2(embeddings_array.shape[1])
-        index.add(embeddings_array)
-        return index
-    
-    def save_optimized_database(self, index: faiss.Index, metadata: List[Dict]):
-        """Save optimized vector database"""
-        os.makedirs(VECTOR_DB_PATH, exist_ok=True)
-        
-        # Save HNSW index if available
-        if isinstance(index, faiss.IndexHNSWFlat):
-            hnsw_path = os.path.join(VECTOR_DB_PATH, HNSW_INDEX_FILE)
-            faiss.write_index(index, hnsw_path)
-            print("✓ Saved HNSW index for faster searches")
-        
-        # Save regular index as fallback
-        index_path = os.path.join(VECTOR_DB_PATH, INDEX_FILE)
-        faiss.write_index(index, index_path)
-        
-        # Save metadata
-        metadata_path = os.path.join(VECTOR_DB_PATH, METADATA_FILE)
-        with open(metadata_path, 'wb') as f:
-            pickle.dump(metadata, f)
-    
-    def load_optimized_database(self) -> Tuple[faiss.Index, List[Dict]]:
-        """Load optimized vector database"""
-        # Try to load HNSW index first
-        hnsw_path = os.path.join(VECTOR_DB_PATH, HNSW_INDEX_FILE)
-        index_path = os.path.join(VECTOR_DB_PATH, INDEX_FILE)
-        metadata_path = os.path.join(VECTOR_DB_PATH, METADATA_FILE)
-        
-        index = None
-        
-        # Try HNSW index first
-        if os.path.exists(hnsw_path) and self.use_hnsw:
-            try:
-                index = faiss.read_index(hnsw_path)
-                print("✓ Loaded HNSW index")
-            except Exception as e:
-                print(f"Failed to load HNSW index: {e}")
-        
-        # Fallback to regular index
-        if index is None and os.path.exists(index_path):
-            try:
-                index = faiss.read_index(index_path)
-                print("✓ Loaded flat index")
-            except Exception as e:
-                print(f"Failed to load index: {e}")
-                return None, []
-        
-        # Load metadata
-        if not os.path.exists(metadata_path):
-            return None, []
-        
-        try:
-            with open(metadata_path, 'rb') as f:
-                metadata = pickle.load(f)
-            return index, metadata
-        except Exception as e:
-            print(f"Failed to load metadata: {e}")
-            return None, []
-    
     def search_with_cache(self, query: str, k: int = 5) -> List[Tuple[float, Dict]]:
         """Search with caching support"""
         # Check cache first
@@ -236,7 +270,7 @@ class OptimizedEmbeddings:
         
         # Perform search
         if self.index is None:
-            self.index, self.metadata = self.load_optimized_database()
+            self.index, self.metadata = load_vector_database(self.use_hnsw)
         
         if self.index is None:
             return []
@@ -266,20 +300,20 @@ class OptimizedEmbeddings:
         # Try to create HNSW index
         if self.use_hnsw and len(embeddings) > 100:  # HNSW is better for larger datasets
             try:
-                self.index = self.create_hnsw_index(embeddings)
+                self.index = create_hnsw_index(embeddings)
                 print(f"✓ Created HNSW index with {len(embeddings)} vectors")
             except Exception as e:
                 print(f"HNSW creation failed: {e}, falling back to flat index")
-                self.index = self.create_flat_index(embeddings)
+                self.index = faiss_index(embeddings)
         else:
-            self.index = self.create_flat_index(embeddings)
+            self.index = faiss_index(embeddings)
             print(f"✓ Created flat index with {len(embeddings)} vectors")
         
         self.metadata = metadata
         
         # Save optimized database
         if self.index is not None:
-            self.save_optimized_database(self.index, metadata)
+            save_vector_database(self.index, metadata)
         
         # Clear cache after rebuild
         self.cache.clear()
