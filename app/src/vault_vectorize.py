@@ -1,9 +1,35 @@
 import os
-import numpy as np
-from markdown_processing import clean_markdown_content
+from dotenv import load_dotenv
 from embeddings import load_embeddings_model, get_embeddings, faiss_index, save_vector_database, load_vector_database
+from advanced_chunking import chunk_documents, ChunkConfig
 
-VAULT_PATH = "../.."
+# Load environment variables
+load_dotenv()
+VAULT_PATH = os.getenv("OBSIDIAN_FOLDER", "../..")
+
+def validate_vault_path(path: str) -> bool:
+    """Validate that the vault path exists and is accessible"""
+    if not path:
+        print("❌ No vault path provided")
+        return False
+    
+    if not os.path.exists(path):
+        print(f"❌ Vault path does not exist: {path}")
+        return False
+    
+    if not os.path.isdir(path):
+        print(f"❌ Vault path is not a directory: {path}")
+        return False
+    
+    # Check if we can read the directory
+    try:
+        os.listdir(path)
+    except PermissionError:
+        print(f"❌ No permission to read vault directory: {path}")
+        return False
+    
+    print(f"✓ Vault path validated: {path}")
+    return True
 
 def load_vault(path: str) -> list[str]:
     md_files = []
@@ -13,73 +39,85 @@ def load_vault(path: str) -> list[str]:
                 md_files.append(os.path.join(root, file))
     return md_files
 
-def read_split_files(files: list[str]) -> list[str]:
-    docs = []
-    for file in files:
-        cleaned_content = clean_md_file(file)
-        fragments = cleaned_content.split("\n\n")
-        for fragment in fragments:
-            if fragment.strip():
-                docs.append(fragment.strip())
-    return docs
 
-def clean_md_file(file: str) -> str:
-    with open(file, "r", encoding="utf-8") as f:
-        content = f.read()
-        return clean_markdown_content(content)
-
-def vectorize_docs(vault_path: str, force_rebuild: bool = False):
+def vectorize_docs(vault_path: str, force_rebuild: bool = False, chunk_config: ChunkConfig | None = None):
+    # Validate vault path first
+    if not validate_vault_path(vault_path):
+        print("❌ Cannot proceed with invalid vault path")
+        return None, []
+    
     # Check if vector database already exists
     existing_index, existing_metadata = load_vector_database()
     if existing_index is not None and not force_rebuild:
         print(f"Loaded existing vector database with {len(existing_metadata)} documents")
         return existing_index, existing_metadata
     
-    print("Building new vector database...")
+    print("Building new vector database with advanced chunking...")
     model = load_embeddings_model()
     files = load_vault(vault_path)
-    docs = read_split_files(files)
-    cleaned_docs = [clean_markdown_content(doc) for doc in docs]
+    
+    if not files:
+        print(f"❌ No markdown files found in {vault_path}")
+        return None, []
+    
+    print(f"Found {len(files)} markdown files")
+    
+    # Use advanced chunking system
+    if chunk_config is None:
+        chunk_config = ChunkConfig(
+            max_chunk_size=800,
+            min_chunk_size=100,
+            overlap_size=100,
+            preserve_structure=True,
+            split_on_sentences=True,
+            include_headers=True
+        )
+    
+    print("Chunking documents with advanced strategy...")
+    chunks = chunk_documents(files, chunk_config)
+    
+    if not chunks:
+        print("❌ No chunks created after processing files")
+        return None, []
+    
+    print(f"Created {len(chunks)} chunks from {len(files)} files")
     
     # Create embeddings and metadata
     embeddings = []
     metadata = []
     
-    for i, (doc, file_path) in enumerate(zip(cleaned_docs, get_file_paths_for_docs(files))):
-        embedding = get_embeddings(model, doc)
+    for i, chunk in enumerate(chunks):
+        # Skip empty chunks
+        if not chunk.content.strip():
+            continue
+            
+        embedding = get_embeddings(model, chunk.content)
         embeddings.append(embedding)
-        metadata.append({
+        
+        # Enhanced metadata with chunking information
+        chunk_metadata = {
             'id': i,
-            'content': doc,
-            'file_path': file_path,
-            'fragment_index': get_fragment_index(file_path, doc, files)
-        })
+            'content': chunk.content,
+            'file_path': chunk.file_path,
+            'chunk_id': chunk.chunk_id,
+            'chunk_index': chunk.chunk_index,
+            'token_count': chunk.token_count,
+            'parent_headers': chunk.parent_headers,
+            'overlap_with_previous': chunk.overlap_with_previous,
+            'overlap_with_next': chunk.overlap_with_next,
+            **chunk.metadata  # Include all the enhanced metadata
+        }
+        metadata.append(chunk_metadata)
     
     # Create and save the index
     index = faiss_index(embeddings)
     if index is not None:
         save_vector_database(index, metadata)
-        print(f"Saved vector database with {len(metadata)} documents")
+        print(f"Saved vector database with {len(metadata)} chunks")
+        print(f"Average tokens per chunk: {sum(chunk.token_count for chunk in chunks) / len(chunks):.1f}")
     
     return index, metadata
 
-def get_file_paths_for_docs(files: list[str]) -> list[str]:
-    file_paths = []
-    for file in files:
-        cleaned_content = clean_md_file(file)
-        fragments = cleaned_content.split("\n\n")
-        for fragment in fragments:
-            if fragment.strip():
-                file_paths.append(file)
-    return file_paths
-
-def get_fragment_index(file_path: str, doc: str, all_files: list[str]) -> int:
-    cleaned_content = clean_md_file(file_path)
-    fragments = cleaned_content.split("\n\n")
-    for i, fragment in enumerate(fragments):
-        if fragment.strip() == doc:
-            return i
-    return 0
 
 if __name__ == "__main__":
     # Test the vector database functionality

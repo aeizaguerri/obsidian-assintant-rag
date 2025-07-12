@@ -1,6 +1,10 @@
 import streamlit as st
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Add src directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
@@ -30,6 +34,22 @@ def display_sidebar_content(chat_instance):
     if chat_instance is None:
         st.error("Chat not initialized")
         return
+    
+    # Obsidian Vault Info
+    st.markdown("### 📁 Obsidian Vault")
+    vault_path = os.getenv("OBSIDIAN_FOLDER", "../..")
+    st.markdown(f"**Path:** `{vault_path}`")
+    
+    # Check vault status
+    if os.path.exists(vault_path):
+        st.success("✅ Vault accessible")
+        # Count markdown files
+        md_count = sum(1 for root, dirs, files in os.walk(vault_path) 
+                      for file in files if file.endswith('.md'))
+        st.info(f"📄 {md_count} markdown files found")
+    else:
+        st.error("❌ Vault path not found")
+        st.warning("Update OBSIDIAN_FOLDER in .env file")
     
     # Vector Database Info
     st.markdown("### 📊 Vector Database")
@@ -77,13 +97,18 @@ def display_sidebar_content(chat_instance):
     use_rag = st.toggle("Enable RAG", value=True, help="Use document context for responses")
     st.session_state.use_rag = use_rag
     
+    
     # Tips Section
     st.markdown("### 💡 Tips")
     st.markdown("""
-    - **Enable RAG** for document-based answers
+    - **Enable RAG** for document-based answers using advanced retrieval
     - **Disable RAG** for general conversation  
     - **Rebuild DB** after adding documents
     - **Clear History** to start fresh
+    - **Wikilinks** `[[page]]` are processed automatically
+    - **Tags** `#tag` are included in search context
+    - Advanced retrieval uses multi-stage processing with reranking
+    - Ask about specific notes by title or tags for best results
     """)
     
     # Model Information
@@ -133,7 +158,10 @@ def main():
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 try:
-                    response = chat.chat(prompt, use_rag=st.session_state.use_rag)
+                    response = chat.chat(
+                        prompt, 
+                        use_rag=st.session_state.use_rag
+                    )
                     if response:
                         st.markdown(response)
                         st.session_state.messages.append({"role": "assistant", "content": response})

@@ -10,4 +10,8 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "sentence-transformers>=5.0.0",
     "streamlit>=1.46.1",
+    "tiktoken>=0.7.0",
+    "spacy>=3.7.0",
+    "rank-bm25>=0.2.2",
+    "scikit-learn>=1.3.0",
 ]

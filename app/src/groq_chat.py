@@ -4,11 +4,12 @@ from dotenv import load_dotenv
 from groq import Groq
 from embeddings import load_embeddings_model, get_embeddings, search_similar
 from vault_vectorize import vectorize_docs
+from advanced_retrieval import AdvancedRetriever, RetrievalConfig
 
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+OBSIDIAN_FOLDER = os.getenv("OBSIDIAN_FOLDER")
 DEFAULT_MODEL = "llama-3.3-70b-versatile"
-VAULT_PATH = "../.."
 
 class GroqChat:
     def __init__(self, api_key: Optional[str] = None, model: str = DEFAULT_MODEL):
@@ -18,48 +19,77 @@ class GroqChat:
         self.conversation_history = []
         
         # Initialize vector database with verbose output
-        print("Initializing vector database...")
-        self.index, self.metadata = vectorize_docs(VAULT_PATH)
+        print(f"Initializing vector database from: {OBSIDIAN_FOLDER}")
+        self.index, self.metadata = vectorize_docs(OBSIDIAN_FOLDER)
         
-        if self.index is not None:
+        if self.index is not None and self.metadata:
             print(f"✓ Vector database ready with {len(self.metadata)} documents")
+            
+            # Initialize advanced retriever
+            retrieval_config = RetrievalConfig(
+                initial_k=15,
+                final_k=5,
+                enable_reranking=True,
+                enable_query_expansion=True,
+                diversity_threshold=0.7,
+                boost_related_chunks=True,
+                boost_header_matches=True
+            )
+            self.advanced_retriever = AdvancedRetriever(retrieval_config)
+            
+            print("✓ RAG system initialized with advanced features")
         else:
             print("⚠ No vector database found - RAG features will be limited")
+            print("  Make sure your OBSIDIAN_FOLDER path is correct and contains .md files")
+            self.advanced_retriever = None
         
-    def get_relevant_context(self, query: str, k: int = 3) -> str:
-        """Retrieve relevant context from the vector database using RAG"""
+    def get_relevant_context(self, query: str, k: int = 5) -> str:
+        """
+        Retrieve relevant context from the vector database using advanced RAG
+        
+        Args:
+            query: The search query
+            k: Number of results to return (passed to advanced retriever config)
+        """
         if self.index is None:
             return ""
         
-        # Get query embedding
-        query_embedding = get_embeddings(self.embeddings_model, query)
-        
-        # Search for similar documents
-        results = search_similar(query_embedding, k)
-        
-        # Format context
-        context_parts = []
-        for distance, metadata in results:
-            context_parts.append(f"Source: {metadata['file_path']}\nContent: {metadata['content']}")
-        
-        return "\n\n---\n\n".join(context_parts)
+        # Use only advanced retrieval
+        if self.advanced_retriever is not None:
+            return self.advanced_retriever.get_enhanced_context(query)
+        else:
+            return ""
+    
     
     def create_system_prompt(self, context: str) -> str:
         """Create system prompt with RAG context"""
-        return f"""You are an AI assistant with access to a knowledge base. Use the following context to answer questions accurately and helpfully.
+        return f"""You are an AI assistant with access to a comprehensive Obsidian knowledge base. Use the following context to answer questions accurately and helpfully.
+
+The context below contains ranked search results with detailed metadata including source files, sections, tags, and relevance scores.
 
 Context from knowledge base:
 {context}
 
 Instructions:
 - Use the provided context to answer questions when relevant
-- If the context doesn't contain relevant information, say so clearly
-- Cite specific sources when referencing information from the context
-- Be concise and helpful in your responses
+- Pay attention to the relevance scores and rankings when choosing which information to prioritize  
+- Reference specific sources, sections, and note titles when citing information
+- If multiple sources contain relevant information, synthesize them coherently
+- If the context doesn't contain sufficient information, clearly state what's missing
+- Consider the document structure (headers, sections) when understanding context
+- Be aware of linked notes and tags when providing comprehensive answers
+- Provide specific, actionable information when possible
 """
     
-    def chat(self, user_message: str, use_rag: bool = True, k: int = 3) -> str | None:
-        """Send a chat message with optional RAG context"""
+    def chat(self, user_message: str, use_rag: bool = True, k: int = 5) -> str | None:
+        """
+        Send a chat message with optional RAG context
+        
+        Args:
+            user_message: The user's message
+            use_rag: Whether to use RAG context
+            k: Number of context results
+        """
         try:
             messages = []
             
@@ -105,7 +135,7 @@ Instructions:
     
     def rebuild_vector_db(self):
         """Rebuild the vector database"""
-        self.index, self.metadata = vectorize_docs(VAULT_PATH, force_rebuild=True)
+        self.index, self.metadata = vectorize_docs(OBSIDIAN_FOLDER, force_rebuild=True)
     
     def get_vector_db_info(self) -> Dict:
         """Get information about the vector database"""

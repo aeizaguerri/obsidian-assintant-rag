@@ -7,6 +7,7 @@ the actual content.
 """
 
 import re
+import os
 
 
 def remove_frontmatter(content: str) -> str:
@@ -26,11 +27,52 @@ def remove_headers(content: str) -> str:
     return re.sub(r'^#{1,6}\s+', '', content, flags=re.MULTILINE)
 
 
+def process_obsidian_wikilinks(content: str) -> str:
+    """Process Obsidian wikilinks [[page]] and [[page|display]] to preserve link information."""
+    # Handle wikilinks with custom display text [[page|display]] -> display (from page)
+    content = re.sub(r'\[\[([^\|\]]+)\|([^\]]+)\]\]', r'\2 (from \1)', content)
+    # Handle simple wikilinks [[page]] -> page
+    content = re.sub(r'\[\[([^\]]+)\]\]', r'\1', content)
+    return content
+
+
+def extract_obsidian_tags(content: str) -> list[str]:
+    """Extract Obsidian tags (#tag) from content."""
+    tags = re.findall(r'#([a-zA-Z0-9_-]+)', content)
+    return tags
+
+
+def extract_note_title(content: str, filename: str) -> str:
+    """Extract note title from content or filename."""
+    # Look for first H1 header
+    h1_match = re.search(r'^#\s+(.+)$', content, re.MULTILINE)
+    if h1_match:
+        return h1_match.group(1).strip()
+    
+    # Fall back to filename without extension
+    return os.path.splitext(os.path.basename(filename))[0]
+
+
+def get_obsidian_metadata(content: str, filepath: str) -> dict:
+    """Extract comprehensive metadata from Obsidian note."""
+    return {
+        'title': extract_note_title(content, filepath),
+        'tags': extract_obsidian_tags(content),
+        'filepath': filepath,
+        'filename': os.path.basename(filepath),
+        'word_count': len(content.split()),
+        'has_wikilinks': '[[' in content,
+        'has_tags': '#' in content
+    }
+
+
 def process_links_and_images(content: str) -> str:
-    """Remove images and convert links to plain text."""
+    """Remove images and convert links to plain text, handling Obsidian wikilinks specially."""
+    # Process Obsidian wikilinks first
+    content = process_obsidian_wikilinks(content)
     # Remove images ![alt](url)
     content = re.sub(r'!\[[^\]]*\]\([^\)]*\)', '', content)
-    # Convert links to plain text [text](url) -> text
+    # Convert regular markdown links to plain text [text](url) -> text
     content = re.sub(r'\[([^\]]*)\]\([^\)]*\)', r'\1', content)
     return content
 
