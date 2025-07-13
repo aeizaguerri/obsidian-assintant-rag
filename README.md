@@ -1,8 +1,8 @@
-# 🤖 Obsidian Assistant RAG
+# Obsidian Assistant RAG
 
 An advanced Retrieval-Augmented Generation (RAG) system designed specifically for Obsidian vaults. This system provides intelligent, context-aware responses by leveraging your markdown notes through sophisticated vector search and multi-stage retrieval processing.
 
-## ✨ Features
+## Features
 
 - **Advanced Retrieval**: Multi-stage processing with query expansion, semantic search, and reranking
 - **Obsidian Integration**: Processes wikilinks `[[page]]`, tags `#tag`, headers, and metadata
@@ -11,7 +11,7 @@ An advanced Retrieval-Augmented Generation (RAG) system designed specifically fo
 - **Web Interface**: Interactive Streamlit chat application
 - **Smart Scoring**: Combines semantic similarity, keyword matching, and diversity filtering
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.13+
@@ -47,7 +47,7 @@ An advanced Retrieval-Augmented Generation (RAG) system designed specifically fo
 
 5. **Access at http://localhost:8501**
 
-## ⚙️ Configuration
+## Configuration
 
 ### Getting API Key
 1. Visit [Groq Console](https://console.groq.com/keys)
@@ -59,7 +59,7 @@ An advanced Retrieval-Augmented Generation (RAG) system designed specifically fo
 - Ensure it contains `.md` files
 - System processes all markdown files recursively
 
-## 📖 Usage
+## Usage
 
 ### Web Interface
 1. Start app with `streamlit run app/app.py`
@@ -80,7 +80,7 @@ Commands: `/help`, `/quit`, `/clear`, `/rebuild`, `/info`, `/rag on/off`
 - "Find information about #python tags"
 - "What does [[Important Note]] contain?"
 
-## 🏗️ Architecture
+## Architecture
 
 The system follows this pipeline:
 1. **Document Ingestion**: Markdown files processed and chunked
@@ -91,7 +91,7 @@ The system follows this pipeline:
 6. **Reranking**: Results scored using multiple criteria
 7. **Response Generation**: Groq LLM generates contextual responses
 
-## 🔧 Advanced Configuration
+## Advanced Configuration
 
 ### Retrieval Settings
 Customize in `groq_chat.py`:
@@ -112,7 +112,7 @@ retrieval_config = RetrievalConfig(
 - Related Chunk Boost: 10%
 - Header Matching: 10%
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```
 obsidian-assintant-rag/
@@ -136,7 +136,7 @@ obsidian-assintant-rag/
 └── README.md
 ```
 
-## 🛠️ Troubleshooting
+## Troubleshooting
 
 **Vector Database Not Found**
 - Ensure `OBSIDIAN_FOLDER` points to directory with `.md` files
@@ -149,13 +149,9 @@ obsidian-assintant-rag/
 **Empty Results**
 - Try different keywords
 - Rebuild database
-- Check vault contains relevant content
+- Restart streamlit app
 
-**Memory Issues**
-- Process large vaults in smaller batches
-- Monitor RAM usage during vectorization
-
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [Groq](https://groq.com/) for fast LLM inference
 - [FAISS](https://github.com/facebookresearch/faiss) for vector search
@@ -164,4 +160,4 @@ obsidian-assintant-rag/
 
 ---
 
-**Happy note querying! 🚀**
+**Happy note querying!**
