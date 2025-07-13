@@ -1,0 +1,9 @@
+# Vector Database Storage
+
+This directory stores the FAISS vector index and metadata files.
+
+Files created here:
+- faiss_index.bin - Vector index for semantic search
+- metadata.pkl - Document metadata and chunk information
+- hnsw_index.bin - Optimized HNSW index (when available)
+- query_cache.pkl - Query result cache
